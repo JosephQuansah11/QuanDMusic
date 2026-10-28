@@ -68,6 +68,10 @@ npm run test:e2e   # 21 checks: engraving, playback, imports, analysis worker, o
 | --- | --- |
 | ![score](docs/score.png) | ![practice](docs/practice.png) |
 | ![instrument](docs/instrument.png) | ![analysed](docs/analysed.png) |
+| ![guitar](docs/guitar.png) | ![playing](docs/playing.png) |
+
+A close-up of the engraver (clef, key signature, noteheads and solfege):
+![score closeup](docs/score-closeup.png)
 
 No API keys, accounts or servers are required.
 
@@ -109,9 +113,13 @@ src/
   import/          midi.ts, musicxml.ts, xml.ts
   audio/           player.ts (Web Audio), voiceSynth.ts, wav.ts, mic.ts
   render/          layout.ts (pure), vexHelpers.ts, ScoreView.tsx (VexFlow)
-  state/           ui.ts, idb.ts
+  state/           ui.ts (shared UI state), idb.ts (offline project storage)
+  utils/           files.ts (type sniffing, downloads, formatting)
   components/      ImportPanel, ScorePanel, ScoreControls, PracticePanel,
                    InstrumentPanel, InstrumentDiagram, OfflinePanel
+  App.tsx          screen composition, transport, imports, exports
+  main.tsx         React entry point + service-worker registration
+  styles.css       the whole visual design (dark, responsive)
 ```
 
 Key design decisions:
