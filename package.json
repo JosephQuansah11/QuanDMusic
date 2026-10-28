@@ -1,0 +1,28 @@
+{
+  "name": "quandmusic",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "QuanDMusic - split any song into SATB parts, read it as solfege, transpose it, and learn your instrument. Works offline.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run --config vitest.config.ts",
+    "test:watch": "vitest",
+    "typecheck": "tsc -b --noEmit false"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vexflow": "^4.2.5"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
+  }
+}
