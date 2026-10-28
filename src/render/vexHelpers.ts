@@ -34,7 +34,8 @@ type VexContext = ReturnType<import('vexflow').Renderer['getContext']>;
 
 function ghostNote(beats: number): GhostNote {
   const value = noteValue(beats);
-  return new GhostNote({ duration: `${value.dots ? 'd' : ''}${value.code}` });
+  // VexFlow writes dots after the duration code: "qd" is a dotted quarter.
+  return new GhostNote({ duration: `${value.code}${'d'.repeat(value.dots)}` });
 }
 
 function labelFor(midis: number[], key: Key, options: LabelOptions): string {

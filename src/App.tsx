@@ -149,7 +149,10 @@ export default function App() {
           await finishImport(midiToScore(parsed, { title: stripExtension(file.name) }));
         } else if (kind === 'musicxml') {
           const text = await file.text();
-          await finishImport(musicXmlToScore(text, { title: stripExtension(file.name) }));
+          // MusicXML usually carries its own title; the file name is the fallback.
+          const parsed = musicXmlToScore(text);
+          if (parsed.title === 'Imported MusicXML') parsed.title = stripExtension(file.name);
+          await finishImport(parsed);
         } else if (kind === 'audio') {
           const player = getPlayer();
           setBusy({ stage: 'Decoding audio', ratio: 0.05 });

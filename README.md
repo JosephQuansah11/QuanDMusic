@@ -52,14 +52,14 @@ npm install
 npm run dev        # http://localhost:5173
 npm run build      # production build in dist/ (open it from any static server)
 npm run preview    # serve the production build
-npm test           # 63 unit / integration tests
+npm test           # 64 unit / integration tests
 ```
 
 End-to-end check in a real browser (optional, needs `npx playwright install chromium`):
 
 ```bash
 npm run build && npx vite preview --port 4173 &
-npm run test:e2e   # 17 checks: engraving, playback, analysis worker, offline reload
+npm run test:e2e   # 21 checks: engraving, playback, imports, analysis worker, offline reload
 ```
 
 ### Screenshots
@@ -125,7 +125,7 @@ Key design decisions:
 
 ## Verification
 
-`npm test` runs 63 tests covering:
+`npm test` runs 64 tests covering:
 
 | Area | What is checked |
 | --- | --- |

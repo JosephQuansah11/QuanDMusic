@@ -7,7 +7,7 @@
  * Usage: npm run build && npx vite preview --port 4173 & node scripts/e2e.mjs
  */
 import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 
 const BASE = process.env.E2E_URL ?? 'http://localhost:4173/';
 const results = [];
@@ -17,6 +17,63 @@ function check(name, condition, detail = '') {
   results.push({ name, ok: Boolean(condition), detail });
   console.log(`${condition ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
 }
+
+
+function buildMidiFile() {
+  const vlq = (value) => {
+    const bytes = [value & 0x7f];
+    let v = value >> 7;
+    while (v > 0) {
+      bytes.unshift((v & 0x7f) | 0x80);
+      v >>= 7;
+    }
+    return bytes;
+  };
+  const track = [];
+  const event = (delta, bytes) => track.push(...vlq(delta), ...bytes);
+  event(0, [0xff, 0x51, 0x03, 0x07, 0xa1, 0x20]);
+  event(0, [0xff, 0x58, 0x04, 0x04, 0x02, 0x18, 0x08]);
+  const chord = (midis, duration) => {
+    for (const midi of midis) event(0, [0x90, midi, 90]);
+    midis.forEach((midi, index) => event(index === 0 ? duration : 0, [0x80, midi, 0]));
+  };
+  chord([60, 64, 67, 72], 480);
+  chord([62, 65, 69, 74], 480);
+  const body = [...track, 0x00, 0xff, 0x2f, 0x00];
+  const header = [0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, 0x01, 0xe0];
+  const len = body.length;
+  return Buffer.from([...header, 0x4d, 0x54, 0x72, 0x6b, (len >>> 24) & 0xff, (len >>> 16) & 0xff, (len >>> 8) & 0xff, len & 0xff, ...body]);
+}
+
+const MUSICXML = `<?xml version="1.0"?>
+<score-partwise version="3.1">
+  <work><work-title>E2E Chorale</work-title></work>
+  <part-list>
+    <score-part id="P1"><part-name>Soprano</part-name></score-part>
+    <score-part id="P2"><part-name>Alto</part-name></score-part>
+    <score-part id="P3"><part-name>Tenor</part-name></score-part>
+    <score-part id="P4"><part-name>Bass</part-name></score-part>
+  </part-list>
+  <part id="P1"><measure number="1">
+    <attributes><divisions>2</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>
+    <note><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><type>half</type></note>
+    <note><pitch><step>F</step><octave>4</octave></pitch><duration>4</duration><type>half</type></note>
+  </measure></part>
+  <part id="P2"><measure number="1">
+    <attributes><divisions>2</divisions></attributes>
+    <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration></note>
+    <note><pitch><step>D</step><octave>4</octave></pitch><duration>4</duration></note>
+  </measure></part>
+  <part id="P3"><measure number="1">
+    <attributes><divisions>2</divisions></attributes>
+    <note><pitch><step>G</step><octave>3</octave></pitch><duration>4</duration></note>
+    <note><pitch><step>A</step><octave>3</octave></pitch><duration>4</duration></note>
+  </measure></part>
+  <part id="P4"><measure number="1">
+    <attributes><divisions>2</divisions></attributes>
+    <note><pitch><step>C</step><octave>3</octave></pitch><duration>8</duration></note>
+  </measure></part>
+</score-partwise>`;
 
 const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -84,6 +141,36 @@ const guitarText = await page.locator('.scale-table').first().innerText();
 check('guitar shows fret positions', /fret|open/.test(guitarText), guitarText.split('\n').slice(0, 4).join(' / '));
 await page.screenshot({ path: 'docs/guitar.png', fullPage: true });
 await page.locator('.field select').first().selectOption('trumpet');
+
+// Import a MIDI file and a MusicXML file through the real file input.
+const midiBytes = buildMidiFile();
+writeFileSync('/tmp/e2e-import.mid', midiBytes);
+await page.getByRole('button', { name: 'Upload', exact: true }).click();
+await page.setInputFiles('input[type=file]', '/tmp/e2e-import.mid');
+await page.waitForFunction(() => document.body.innerText.includes('e2e-import'), undefined, { timeout: 30000 });
+const midiLabels = await page.locator('.score-canvas svg text').allTextContents();
+check('MIDI upload renders a score', midiLabels.filter((t) => /^[drmafslte,']+$/.test(t)).length >= 4, `${midiLabels.filter((t) => /^[drmafslte,']+$/.test(t)).length} solfege labels`);
+
+writeFileSync('/tmp/e2e-import.musicxml', MUSICXML);
+await page.getByRole('button', { name: 'Upload', exact: true }).click();
+await page.setInputFiles('input[type=file]', '/tmp/e2e-import.musicxml');
+await page.waitForFunction(
+  () => {
+    const texts = Array.from(document.querySelectorAll('.score-canvas svg text')).map((node) => node.textContent);
+    return texts.includes('Bass') && texts.includes('Tenor');
+  },
+  undefined,
+  { timeout: 30000 },
+);
+const xmlLabels = await page.locator('.score-canvas svg text').allTextContents();
+check('MusicXML upload renders four parts', ['Soprano', 'Alto', 'Tenor', 'Bass'].every((name) => xmlLabels.includes(name)));
+const xmlTitle = await page.locator('h1.title').innerText();
+check('MusicXML keeps its own title', xmlTitle.includes('E2E Chorale'), xmlTitle);
+
+await page.getByRole('button', { name: 'Offline', exact: true }).click();
+const stored = await page.locator('.project-list').innerText();
+check('imports are stored offline', /E2E Chorale|e2e-import/.test(stored), stored.split('\n').slice(0, 3).join(' / '));
+await page.getByRole('button', { name: 'Upload', exact: true }).click();
 
 // Audio analysis in the worker, from a synthesized performance.
 await page.getByRole('button', { name: 'Upload', exact: true }).click();

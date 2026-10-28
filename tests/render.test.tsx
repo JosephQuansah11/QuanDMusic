@@ -141,3 +141,28 @@ describe('layout helpers', () => {
     expect(pointToBeat(82 + 10, 150, systems, 240, 82, rowTop, 100, 4)).toBeCloseTo(8.1667, 3);
   });
 });
+
+describe('gaps and rests', () => {
+  it('fills rests without breaking the measure', async () => {
+    const score = {
+      ...DEMO_SCORE,
+      parts: {
+        ...DEMO_SCORE.parts,
+        S: {
+          id: 'S' as const,
+          name: 'Soprano',
+          notes: [
+            { midi: 72, start: 0, duration: 1, velocity: 0.8 },
+            { midi: 74, start: 2.5, duration: 0.5, velocity: 0.8 },
+            { midi: 76, start: 3, duration: 1, velocity: 0.8 },
+          ],
+        },
+      },
+    };
+    const container = await renderScore(score, { ...OPTIONS, parts: ['S'] });
+    const texts = Array.from(container.querySelectorAll('text')).map((node) => node.textContent ?? '');
+    // C5, D5 and E5 are the upper octave: do', re', mi'.
+    expect(texts.filter((text) => /^[drmafslte,']+$/.test(text))).toEqual(["d'", "r'", "m'"]);
+    expect(container.querySelectorAll('svg path').length).toBeGreaterThan(5);
+  });
+});
