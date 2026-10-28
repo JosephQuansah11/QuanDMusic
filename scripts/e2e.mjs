@@ -50,9 +50,15 @@ await page.getByRole('button', { name: 'Stop', exact: true }).click();
 
 // Transposition updates the printed key.
 const keyBefore = await page.locator('.controls .value').first().textContent();
-await page.getByRole('button', { name: '+2' }).click();
+await page.locator('select[aria-label="Transpose to a key"]').selectOption('D major');
+await page.waitForTimeout(300);
 const keyAfter = await page.locator('.controls .value').first().textContent();
-check('transposition changes the key', keyBefore !== keyAfter, `${keyBefore} -> ${keyAfter}`);
+check('transposition changes the key', keyAfter === 'D major', `${keyBefore} -> ${keyAfter}`);
+await page.getByRole('button', { name: '+1', exact: true }).click();
+const keyUpOne = await page.locator('.controls .value').first().textContent();
+check('single semitone transposition', keyUpOne === 'Eb major', String(keyUpOne));
+await page.locator('select[aria-label="Transpose to a key"]').selectOption('C major');
+await page.waitForTimeout(200);
 
 // Practice tab.
 await page.getByRole('button', { name: 'Practice', exact: true }).click();
@@ -68,6 +74,16 @@ check('instrument scale has fingerings', /open|1·2|1·3|2·3/.test(instrumentTe
 const flatsText = await page.locator('.scale-table').nth(1).innerText();
 check('flats drill lists flat notes', /♭[\s\S]*b/.test(flatsText), flatsText.split('\n').slice(0, 6).join(' / '));
 await page.screenshot({ path: 'docs/instrument.png', fullPage: true });
+
+// Switch instruments: trombone shows slide positions, guitar shows frets.
+await page.locator('.field select').first().selectOption('trombone');
+const slideText = await page.locator('.scale-table').first().innerText();
+check('trombone shows slide positions', /1st position|2nd position|3rd position/.test(slideText), slideText.split('\n').slice(0, 4).join(' / '));
+await page.locator('.field select').first().selectOption('guitar');
+const guitarText = await page.locator('.scale-table').first().innerText();
+check('guitar shows fret positions', /fret|open/.test(guitarText), guitarText.split('\n').slice(0, 4).join(' / '));
+await page.screenshot({ path: 'docs/guitar.png', fullPage: true });
+await page.locator('.field select').first().selectOption('trumpet');
 
 // Audio analysis in the worker, from a synthesized performance.
 await page.getByRole('button', { name: 'Upload', exact: true }).click();

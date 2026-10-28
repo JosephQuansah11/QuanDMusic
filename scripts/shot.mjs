@@ -1,0 +1,12 @@
+import { chromium } from 'playwright';
+const BASE = process.env.E2E_URL ?? 'http://localhost:4180/';
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+await page.goto(BASE, { waitUntil: 'networkidle' });
+await page.getByRole('button', { name: /demo chorale/i }).click();
+await page.waitForSelector('.score-canvas svg');
+await page.locator('.score-canvas').screenshot({ path: 'docs/score-closeup.png' });
+const box = await page.locator('.score-canvas svg').boundingBox();
+console.log('svg box', box);
+await page.screenshot({ path: 'docs/score.png', fullPage: true });
+await browser.close();

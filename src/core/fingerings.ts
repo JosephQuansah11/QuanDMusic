@@ -26,6 +26,8 @@ export interface FingeringOption {
   offset: number;
   /** Harmonic number on the instrument (1 = fundamental). */
   partial?: number;
+  /** String index for fretboard instruments, 0 = highest string. */
+  string?: number;
   detail: string;
 }
 
@@ -106,6 +108,7 @@ export function guitarPositions(instrument: Instrument, writtenMidi: number): Fi
     options.push({
       label: fret === 0 ? `${STRING_NAMES[index]} open` : `${STRING_NAMES[index]} str, fret ${fret}`,
       offset: fret,
+      string: index,
       detail: fret === 0 ? `open ${STRING_NAMES[index]} string` : `fret ${fret} on the ${STRING_NAMES[index]} string`,
     });
   });

@@ -238,7 +238,8 @@ export const INSTRUMENTS: Instrument[] = [
     fundamental: 40,
     transposition: 'Sounds an octave lower than written.',
     description: 'Standard tuning written E3 A3 D4 G4 B4 E5; each fret is one semitone.',
-    tuning: [64, 59, 55, 50, 45, 40],
+    // Written pitches an octave above sounding: E3 A3 D4 G4 B4 E5.
+    tuning: [76, 71, 67, 62, 57, 52],
   },
   {
     id: 'piano',

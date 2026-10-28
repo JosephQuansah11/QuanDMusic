@@ -72,17 +72,7 @@ export function InstrumentDiagram({ instrument, fingering }: InstrumentDiagramPr
   if (instrument.system === 'fretboard' && instrument.tuning) {
     const strings = instrument.tuning;
     const fret = fingering.options[0]?.offset ?? -1;
-    const stringIndex = fingering.options[0]?.label.includes('high E')
-      ? 0
-      : fingering.options[0]?.label.includes('B')
-        ? 1
-        : fingering.options[0]?.label.includes('G')
-          ? 2
-          : fingering.options[0]?.label.includes('D')
-            ? 3
-            : fingering.options[0]?.label.includes('low E')
-              ? 5
-              : 4;
+    const stringIndex = fingering.options[0]?.string ?? 0;
     return (
       <svg viewBox="0 0 300 140" className="diagram" role="img" aria-label="guitar fretboard">
         <text x="6" y="14" className="diagram-title">

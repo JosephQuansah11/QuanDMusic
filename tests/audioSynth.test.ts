@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderScoreToPcm, renderVoice, renderDemoAudio } from '../src/audio/voiceSynth';
+import { magnitudeSpectrogram } from '../src/dsp/fft';
 import { decodeWav, encodeWav } from '../src/audio/wav';
 import { analyzeAudio } from '../src/dsp/analyze';
 import { DEMO_SCORE } from '../src/core/demo';
@@ -52,4 +53,31 @@ describe('analysing the synthesized demo', () => {
     }
     expect(result.score.source).toBe('audio');
   }, 120000);
+});
+
+describe('synthesis tuning', () => {
+  it('holds a steady pitch while the vibrato runs', () => {
+    const pcm = new Float32Array(SR * 2);
+    renderVoice(pcm, SR, 60, 0, 1.5, { vowel: 'ah', vibratoCents: 12 });
+    const spec = magnitudeSpectrogram(pcm, SR, 8192, 2048);
+    const binHz = SR / 8192;
+    const expected = 261.63;
+    for (const frame of [1, 3, 5]) {
+      const base = frame * spec.bins;
+      // The formant boosts upper partials, so look for the fundamental itself.
+      let best = 0;
+      let bestBin = 0;
+      const centre = Math.round(expected / binHz);
+      for (let b = centre - 8; b <= centre + 8; b++) {
+        if (spec.data[base + b] > best) {
+          best = spec.data[base + b];
+          bestBin = b;
+        }
+      }
+      const hz = bestBin * binHz;
+      // Within a semitone through the whole note: the old phase bug drifted by
+      // more than two semitones here.
+      expect(Math.abs(1200 * Math.log2(hz / expected))).toBeLessThan(100);
+    }
+  });
 });

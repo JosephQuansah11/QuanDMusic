@@ -149,3 +149,28 @@ describe('practice generation', () => {
     expect(notes[0].fingering).toBe('open');
   });
 });
+
+describe('guitar and piano positions', () => {
+  const guitar = getInstrument('guitar');
+  const piano = getInstrument('piano');
+
+  it('finds the nearest fret with the right string', () => {
+    // Written pitch is an octave above sounding pitch, so concert E4 is the open
+    // high E string (written E5) and concert E2 is the open low E string.
+    expect(fingeringFor(guitar, nameToMidi('E4')).primary).toBe('high E open');
+    expect(fingeringFor(guitar, nameToMidi('E2')).primary).toBe('low E open');
+    expect(fingeringFor(guitar, nameToMidi('B3')).primary).toBe('B open');
+    // Concert A4 is written A5: 5th fret of the high E string.
+    const a5 = fingeringFor(guitar, nameToMidi('A4'));
+    expect(a5.primary).toBe('high E str, fret 5');
+    expect(a5.options[0].string).toBe(0);
+    // Concert E3 is written E4: second fret of the D string is the easiest.
+    expect(fingeringFor(guitar, nameToMidi('E3')).primary).toBe('D str, fret 2');
+  });
+
+  it('names the piano key', () => {
+    expect(fingeringFor(piano, 60).primary).toBe('C4');
+    expect(fingeringFor(piano, 61).options[0].detail).toBe('black key');
+    expect(fingeringFor(piano, 62).options[0].detail).toBe('white key');
+  });
+});

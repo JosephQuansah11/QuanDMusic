@@ -1,5 +1,5 @@
 import { PART_IDS, PART_NAMES, type Score } from '../core/score';
-import { accidentalCount, keyName } from '../core/keys';
+import { ALL_KEYS, accidentalCount, keyName } from '../core/keys';
 import type { ClefName } from '../core/instruments';
 import type { UiState } from '../state/ui';
 
@@ -92,9 +92,23 @@ export function ScoreControls({ score, ui, onUiChange }: ScoreControlsProps) {
         <button type="button" className="ghost" onClick={() => onUiChange({ transpose: ui.transpose + 1 })}>
           +1
         </button>
-        <button type="button" className="ghost" onClick={() => onUiChange({ transpose: ui.transpose + 2 })}>
-          +2
-        </button>
+        <select
+          value={keyName(score.key)}
+          aria-label="Transpose to a key"
+          onChange={(event) => {
+            const target = ALL_KEYS.find((option) => keyName(option) === event.target.value);
+            if (!target) return;
+            // Move to the nearest spelling of the target tonic.
+            const delta = ((target.tonic - score.key.tonic + 18) % 12) - 6;
+            onUiChange({ transpose: ui.transpose + delta });
+          }}
+        >
+          {ALL_KEYS.map((option) => (
+            <option key={`${option.tonic}-${option.mode}`} value={keyName(option)}>
+              {keyName(option)} ({accidentalCount(option)})
+            </option>
+          ))}
+        </select>
         <button type="button" className="ghost" onClick={() => onUiChange({ transpose: 0 })} disabled={ui.transpose === 0}>
           reset
         </button>
