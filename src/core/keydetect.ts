@@ -48,17 +48,29 @@ function rotate(profile: number[], tonic: number): number[] {
   return out;
 }
 
-export function estimateKeyFromChroma(chroma: number[]): KeyEstimate {
+export interface KeyEstimateOptions {
+  /** Weight of the "tonic and dominant are really present" bonus. */
+  tonicEmphasis?: number;
+}
+
+export function estimateKeyFromChroma(chroma: number[], options: KeyEstimateOptions = {}): KeyEstimate {
   if (chroma.length !== 12) throw new Error('chroma must have 12 bins');
   const total = chroma.reduce((s, v) => s + v, 0);
   const normalised = total > 0 ? chroma.map((v) => v / total) : chroma.slice();
+  const emphasis = options.tonicEmphasis ?? 0.35;
 
   const candidates: KeyCandidate[] = [];
   for (let tonic = 0; tonic < 12; tonic++) {
     const major = pearson(normalised, rotate(MAJOR_PROFILE, tonic));
     const minor = pearson(normalised, rotate(MINOR_PROFILE, tonic));
-    candidates.push({ key: { tonic, mode: 'major' }, score: major });
-    candidates.push({ key: { tonic, mode: 'minor' }, score: minor });
+    // A key whose own tonic and dominant are prominent beats one that merely
+    // shares the same set of notes (the classic relative major/minor mix-up).
+    const tonicWeight = normalised[tonic];
+    const dominantWeight = normalised[(tonic + 7) % 12];
+    const majorBonus = emphasis * (tonicWeight * 1.5 + dominantWeight + normalised[(tonic + 4) % 12] * 0.5);
+    const minorBonus = emphasis * (tonicWeight * 1.5 + dominantWeight + normalised[(tonic + 3) % 12] * 0.5);
+    candidates.push({ key: { tonic, mode: 'major' }, score: major + majorBonus });
+    candidates.push({ key: { tonic, mode: 'minor' }, score: minor + minorBonus });
   }
   candidates.sort((a, b) => b.score - a.score);
   const best = candidates[0];

@@ -8,7 +8,6 @@
 import { childText, childrenNamed, findFirst, firstChild, parseXml, type XmlNode } from './xml';
 import {
   createPart,
-  mergeTiedNotes,
   PART_IDS,
   type NoteEvent,
   type Part,
@@ -137,7 +136,9 @@ function parsePart(node: XmlNode, names: Record<string, string>): ParsedPart {
     }
   }
 
-  return { id, name, notes: mergeTiedNotes(notes), clef };
+  // Only explicit ties are merged: two equal notes in a row stay separate so
+  // the rhythm survives the round trip.
+  return { id, name, notes, clef };
 }
 
 function partNames(root: XmlNode): Record<string, string> {

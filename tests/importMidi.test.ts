@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseMidi, midiToScore } from '../src/import/midi';
-import { musicXmlToScore } from '../src/import/musicxml';
+
 import { estimateKey } from '../src/core/keydetect';
 
 type Ev = { delta: number; bytes: number[] };
