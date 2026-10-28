@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.cline-home/
+*.local
+.DS_Store
+coverage/
+*.log
