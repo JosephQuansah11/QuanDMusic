@@ -68,3 +68,37 @@ describe('MusicXML export', () => {
     expect(xml).not.toContain('<part-name>Bass</part-name>');
   });
 });
+
+describe('spelling property checks', () => {
+  const keys = [
+    { tonic: 0, mode: 'major' as const },
+    { tonic: 3, mode: 'major' as const },
+    { tonic: 10, mode: 'major' as const },
+    { tonic: 6, mode: 'major' as const },
+    { tonic: 5, mode: 'major' as const },
+    { tonic: 9, mode: 'minor' as const },
+    { tonic: 2, mode: 'minor' as const },
+  ];
+
+  it('always produces a valid letter, accidental and octave', () => {
+    for (const key of keys) {
+      for (let midi = 36; midi <= 96; midi++) {
+        const spelled = spellForXml(midi, key);
+        expect(['C', 'D', 'E', 'F', 'G', 'A', 'B']).toContain(spelled.step);
+        expect(Math.abs(spelled.alter)).toBeLessThanOrEqual(1);
+        const semitones: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+        expect(12 * (spelled.octave + 1) + semitones[spelled.step] + spelled.alter).toBe(midi);
+      }
+    }
+  });
+
+  it('uses flats for chromatic notes in flat keys and sharps in sharp keys', () => {
+    const fMajor = { tonic: 5, mode: 'major' as const };
+    const dMajor = { tonic: 2, mode: 'major' as const };
+    expect(spellForXml(66, fMajor)).toEqual({ step: 'G', alter: -1, octave: 4 });
+    expect(spellForXml(68, fMajor)).toEqual({ step: 'A', alter: -1, octave: 4 });
+    expect(spellForXml(66, dMajor)).toEqual({ step: 'F', alter: 1, octave: 4 });
+    // C natural in D major keeps its letter and needs a natural sign.
+    expect(spellForXml(72, dMajor)).toEqual({ step: 'C', alter: 0, octave: 5 });
+  });
+});

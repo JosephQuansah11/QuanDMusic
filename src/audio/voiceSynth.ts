@@ -56,6 +56,9 @@ export function renderVoice(
   const baseFreq = midiToFrequency(midi);
   const maxHarmonic = Math.min(18, Math.floor((sampleRate / 2 - 100) / baseFreq));
 
+  let phase = 0;
+  const phaseStep = (2 * Math.PI) / sampleRate;
+
   for (let i = 0; i < length; i++) {
     const index = start + i;
     if (index < 0) continue;
@@ -66,8 +69,11 @@ export function renderVoice(
       Math.min(1, Math.max(0, (durationSeconds - t) / Math.max(1e-4, release)));
     if (envelope <= 0) continue;
 
-    const vibrato = 1 + (vibratoCents / 1200) * Math.sin(2 * Math.PI * vibratoRate * t);
-    const freq = baseFreq * vibrato;
+    // Vibrato must modulate the *phase increment*, not the phase itself:
+    // using sin(2*pi*f(t)*t) would drag the pitch flat as t grows.
+    const freq = baseFreq * (1 + (vibratoCents / 1200) * Math.sin(2 * Math.PI * vibratoRate * t));
+    phase += phaseStep * freq;
+    if (phase > 2 * Math.PI) phase -= 2 * Math.PI;
 
     let sample = 0;
     for (let h = 1; h <= maxHarmonic; h++) {
@@ -81,14 +87,14 @@ export function renderVoice(
       }
       amplitude *= formantGain;
       if (h % 2 === 0) amplitude *= 0.85;
-      sample += amplitude * Math.sin(2 * Math.PI * harmonicFreq * t + h * 0.7);
+      sample += amplitude * Math.sin(phase * h + h * 0.7);
     }
     pcm[index] += sample * envelope * gain * 0.09;
   }
 }
 
+/** Options for rendering whole parts, including an optional practice beat. */
 export interface RenderPartOptions extends VoiceOptions {
-  /** Include a light metronome click on each beat. */
   metronome?: boolean;
 }
 

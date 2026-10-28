@@ -15,7 +15,7 @@ import { hpss } from './hpss';
 import { onsetTimes, spectralFlux } from './onsets';
 import { beatGrid, estimateTempo, onsetEnvelope, secondsToBeats, type BeatGrid } from './tempo';
 import { chromaFromSpectrogram, detectNotes } from './multipitch';
-import { chromaFromNotes, estimateKeyFromChroma } from '../core/keydetect';
+import { estimateKeyFromChroma } from '../core/keydetect';
 import { quantizeNotes, trimOverlaps } from '../core/quantize';
 import { assignVoices } from '../core/voices';
 import { PART_IDS, type Score, type TimeSignature } from '../core/score';
@@ -32,6 +32,8 @@ export interface AnalyzeOptions {
   minMidi?: number;
   maxMidi?: number;
   maxVoices?: number;
+  /** Salience threshold for a note to start. */
+  threshold?: number;
   onProgress?: (stage: string, ratio: number) => void;
 }
 
@@ -81,18 +83,6 @@ function inferMeter(flux: Float32Array, grid: BeatGrid, frameRate: number): Time
   return { beats, beatUnit: 4 };
 }
 
-/** Mixes two chroma histograms after normalising them to the same total. */
-function blendChroma(spectral: number[], notes: number[]): number[] {
-  const norm = (values: number[]) => {
-    const total = values.reduce((sum, v) => sum + v, 0);
-    return total > 0 ? values.map((v) => v / total) : values.map(() => 0);
-  };
-  const a = norm(spectral);
-  const b = norm(notes);
-  const hasNotes = b.some((v) => v > 0);
-  return a.map((value, i) => (hasNotes ? value * 0.45 + b[i] * 0.55 : value));
-}
-
 export function analyzeAudio(
   pcm: Float32Array,
   sampleRate: number,
@@ -119,15 +109,14 @@ export function analyzeAudio(
   const detected = detectNotes(spec, separated.harmonic, {
     minMidi: options.minMidi ?? 40,
     maxMidi: options.maxMidi ?? 84,
-    maxVoices: options.maxVoices ?? 6,
+    maxVoices: options.maxVoices ?? 4,
+    threshold: options.threshold ?? 0.22,
   });
 
   report('Detecting key', 0.85);
-  const spectralChroma = chromaFromSpectrogram(spec, separated.harmonic);
-  const noteChroma = chromaFromNotes(
-    detected.map((note) => ({ midi: note.midi, duration: note.end - note.start, velocity: note.velocity })),
-  );
-  const keyEstimate = estimateKeyFromChroma(blendChroma(spectralChroma, noteChroma));
+  // The full harmonic spectrogram is more reliable than the detected notes,
+  // which can lose quiet inner voices.
+  const keyEstimate = estimateKeyFromChroma(chromaFromSpectrogram(spec, separated.harmonic));
 
   report('Finding onsets and tempo', 0.6);
   const percussiveFlux = spectralFlux(separated.percussive, spec.frames, spec.bins);

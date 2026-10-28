@@ -17,7 +17,7 @@ import {
   type Score,
 } from './score';
 import { diatonicScale, keyFifths } from './keys';
-import { accidentalToString, LETTER_SEMITONES, LETTERS, pitchClass } from './pitch';
+import { accidentalToString, enharmonicSpellings, LETTER_SEMITONES, LETTERS, pitchClass } from './pitch';
 
 const CLEFS: Record<PartId, { sign: string; line: number; octave?: number }> = {
   S: { sign: 'G', line: 2 },
@@ -57,24 +57,17 @@ export function spellForXml(midi: number, key: Score['key']): { step: string; al
     letter = degree.letter;
     alter = degree.alter;
   } else {
-    // Chromatic note: flats in flat keys, sharps in sharp keys.
+    // Chromatic note. Choose between the valid spellings: a natural letter when
+    // one exists (it needs a natural sign), otherwise a sharp in sharp keys and
+    // a flat in flat keys.
+    const spellings = enharmonicSpellings(pc);
     const preferFlats = keyFifths(key) < 0;
-    const naturals = [0, 2, 4, 5, 7, 9, 11];
-    const sharpLetter = naturals.find((natural) => (natural + 1) % 12 === pc);
-    const flatLetter = naturals.find((natural) => (natural - 1 + 12) % 12 === pc);
-    if (preferFlats && flatLetter !== undefined) {
-      letter = flatLetter;
-      alter = -1;
-    } else if (sharpLetter !== undefined) {
-      letter = sharpLetter;
-      alter = 1;
-    } else if (flatLetter !== undefined) {
-      letter = flatLetter;
-      alter = -1;
-    } else {
-      letter = naturals.reduce((best, natural) => (Math.abs(natural - pc) < Math.abs(best - pc) ? natural : best), 0);
-      alter = pc - letter;
-    }
+    const natural = spellings.find((option) => option.alter === 0);
+    const preferred = spellings.find((option) => option.alter === (preferFlats ? -1 : 1));
+    const other = spellings.find((option) => option.alter === (preferFlats ? 1 : -1));
+    const chosen = natural ?? preferred ?? other ?? { letter: 0, alter: 0 };
+    letter = chosen.letter;
+    alter = chosen.alter;
   }
 
   let octave = Math.round((midi - alter - LETTER_SEMITONES[letter]) / 12) - 1;

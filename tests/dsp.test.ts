@@ -109,7 +109,7 @@ describe('polyphonic detection', () => {
     ]);
     const spec = magnitudeSpectrogram(chord, SR, 2048, 256);
     const { harmonic } = hpss(spec);
-    const notes = detectNotes(spec, harmonic, { minMidi: 40, maxMidi: 72, maxVoices: 4, threshold: 0.35 });
+    const notes = detectNotes(spec, harmonic, { minMidi: 40, maxMidi: 72, maxVoices: 4 });
     const pitches = Array.from(new Set(notes.map((n) => n.midi))).sort((a, b) => a - b);
     expect(pitches).toEqual([48, 52, 55, 60]);
   });

@@ -1,0 +1,26 @@
+{
+  "name": "QuanDMusic - split, read and practise every part",
+  "short_name": "QuanDMusic",
+  "description": "Split a song into soprano, alto, tenor and bass, read it in solfege, transpose it to a comfortable key and learn it on your instrument. Works offline.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0c0f1c",
+  "theme_color": "#101322",
+  "categories": ["music", "education"],
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
