@@ -77,6 +77,15 @@ class StaffInfo:
     def is_polyphonic(self) -> bool:
         return self.polyphonic_ratio >= POLYPHONY_THRESHOLD
 
+    @property
+    def register(self) -> str:
+        """``upper`` (Soprano/Alto staff) or ``lower`` (Tenor/Bass staff), from clef, else pitch."""
+        if self.clef in ("bass", "treble8vb", "tenor", "baritone", "subbass"):
+            return "lower"
+        if self.clef in ("treble", "soprano", "mezzosoprano", "alto"):
+            return "upper"
+        return "lower" if self.mean_midi is not None and self.mean_midi < 60 else "upper"
+
 
 @dataclass
 class LayoutPlan:
@@ -168,18 +177,33 @@ def plan_layout(staves: list[StaffInfo], layout: str = "auto", mapping: str | No
     if n == 1:
         return LayoutPlan("melody", [(0, ["Soprano"])], [])
 
-    # Mixed layouts: walk staves top-down; a polyphonic staff carries two voices.
-    remaining = list(VOICES)
+    # Walk staves top-down. Treble staves take Soprano/Alto, bass staves Tenor/Bass. A staff
+    # carries two voices when it is polyphonic, or when it is the only staff for its register
+    # (e.g. an SA staff whose voices mostly share stems directly above a TB staff).
+    groups = {"upper": ["Soprano", "Alto"], "lower": ["Tenor", "Bass"]}
     assignment: list[tuple[int, list[str]]] = []
     ignored: list[int] = []
     for i, s in enumerate(staves):
-        if not remaining:
+        pool = groups[s.register]
+        borrowed = not pool
+        if borrowed:
+            # e.g. a tenor printed in plain treble clef; piano staves after a complete choir end here
+            other = groups["lower" if s.register == "upper" else "upper"]
+            pool = other if (other and not s.is_polyphonic and other is groups["lower"]) else []
+        if not pool:
             ignored.append(i)
             continue
-        take = 2 if s.is_polyphonic and len(remaining) >= 2 else 1
-        assignment.append((i, remaining[:take]))
-        remaining = remaining[take:]
-    kind = "mixed" if not remaining else "partial"
+        next_same = i + 1 < n and staves[i + 1].register == s.register
+        take = 2 if len(pool) >= 2 and not borrowed and (s.is_polyphonic or not next_same) else 1
+        assignment.append((i, pool[:take]))
+        del pool[:take]
+    assigned = [v for _, vs in assignment for v in vs]
+    if assignment[:2] == [(0, ["Soprano", "Alto"]), (1, ["Tenor", "Bass"])]:
+        kind = "closed"
+    elif all(len(vs) == 1 for _, vs in assignment) and len(assigned) == 4:
+        kind = "open"
+    else:
+        kind = "mixed" if len(assigned) == 4 else "partial"
     return LayoutPlan(kind, assignment, ignored)
 
 

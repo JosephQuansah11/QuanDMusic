@@ -1,3 +1,5 @@
+import copy
+
 import pytest
 from music21 import chord, clef, key, meter, note, stream
 
@@ -189,6 +191,7 @@ def test_accompaniment_staves_are_ignored():
         _staff([_measure(1, [chord.Chord(["C2", "C3"], quarterLength=4)])], clef.BassClef()),
     ]
     res = to_satb(stream.Score(choir + piano))
+    assert res.plan.kind == "closed"
     assert res.plan.ignored_staves == [2, 3]
     assert [_pitches(p) for p in res.score.parts] == [["C5"], ["E4"], ["G3"], ["C3"]]
 
@@ -225,3 +228,39 @@ def test_measures_are_filled_to_bar_length():
     for p in res.score.parts:
         m = p.getElementsByClass(stream.Measure)[0]
         assert sum(n.quarterLength for n in m.notesAndRests) == 4
+
+
+def test_closed_staff_with_mostly_shared_stems_still_carries_two_voices():
+    upper = _staff(
+        [
+            _measure(1, [note.Note("E5", quarterLength=4)]),
+            _measure(2, [note.Note("D5", quarterLength=4)]),
+            _measure(3, [chord.Chord(["G4", "C5"], quarterLength=4)]),
+            _measure(4, [note.Note("C5", quarterLength=4)]),
+        ],
+        clef.TrebleClef(),
+    )
+    lower = _staff([_measure(i, [chord.Chord(["C3", "G3"], quarterLength=4)]) for i in range(1, 5)], clef.BassClef())
+    res = to_satb(stream.Score([copy.deepcopy(upper), copy.deepcopy(lower)]))
+    assert res.plan.kind == "closed"
+    s3 = stream.Score([copy.deepcopy(upper), copy.deepcopy(lower), _mono_staff("C4", clef.TrebleClef())])
+    res = to_satb(s3)
+    assert res.plan.assignment[:2] == [(0, ["Soprano", "Alto"]), (1, ["Tenor", "Bass"])]
+    assert [_pitches(p)[2] for p in res.score.parts[:2]] == ["C5", "G4"]
+
+
+def test_open_score_with_treble_tenor_and_piano():
+    piano = [
+        _staff([_measure(1, [chord.Chord(["C4", "E4", "G4"], quarterLength=4)])], clef.TrebleClef()),
+        _staff([_measure(1, [chord.Chord(["C2", "C3"], quarterLength=4)])], clef.BassClef()),
+    ]
+    choir = [
+        _mono_staff("C5", clef.TrebleClef()),
+        _mono_staff("E4", clef.TrebleClef()),
+        _mono_staff("G4", clef.TrebleClef()),
+        _mono_staff("C3", clef.BassClef()),
+    ]
+    res = to_satb(stream.Score(choir + piano))
+    assert res.plan.kind == "open"
+    assert res.plan.assignment == [(0, ["Soprano"]), (1, ["Alto"]), (2, ["Tenor"]), (3, ["Bass"])]
+    assert res.plan.ignored_staves == [4, 5]

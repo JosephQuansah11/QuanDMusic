@@ -9,7 +9,7 @@ It handles both choral layouts:
 | **Open score** | S, A, T, B on four separate staves | each staff becomes one voice |
 | **Closed / combined score** | two staves: S+A share the treble staff, T+B share the bass staff | each staff is split into its two voices (by OMR voice, stem direction and chord top/bottom notes; unisons go to both voices), then processed like an open score |
 
-Layout is detected automatically; it can be forced with `--layout` or an explicit `--map`.
+Layout is detected automatically on every page before any other processing: two staves → closed; four single-voice staves → open; otherwise staves are read top-down, treble staves taking S/A and bass staves T/B, with a staff carrying two voices when it has chords/two voices or is the only staff for its register. Extra staves (piano accompaniment) are ignored and flagged. The detected layout is shown in the report and web UI, and can be forced with `--layout` or an explicit `--map`.
 
 ## Pipeline
 
