@@ -49,7 +49,7 @@ satb-omr serve --port 8000                            # web UI: upload, preview,
 
 ### Outputs (`out/`)
 
-- `<name>.satb.musicxml`, `<name>.satb.mid` — four-part score (tenor in treble-8vb clef)
+- `<name>.satb.musicxml`, `<name>.satb.mid` — four-part score; every voice keeps its source staff's clef (a split Tenor stays in bass clef), so notes sit exactly where they were printed
 - `voices/<name>.<voice>.musicxml|.mid` — each voice on its own
 - `<name>.notes.csv` / `.report.json` — every note: voice, measure, beat, duration, pitch, MIDI, solfège
 - `<name>.report.md` — readable summary + **review flags**

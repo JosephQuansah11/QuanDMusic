@@ -33,6 +33,8 @@ from music21 import (
 
 VOICES = ("Soprano", "Alto", "Tenor", "Bass")
 ABBREV = {"S": "Soprano", "A": "Alto", "T": "Tenor", "B": "Bass"}
+# Only used when the source staff has no clef; otherwise each voice keeps its staff's clefs
+# so every note stays on the same line/space as in the original.
 VOICE_CLEFS = {
     "Soprano": clef.TrebleClef,
     "Alto": clef.TrebleClef,
@@ -218,8 +220,6 @@ def _pick(el: note.GeneralNote, which: str) -> note.GeneralNote:
         n.lyrics = copy.deepcopy(el.lyrics)
         n.articulations = copy.deepcopy(el.articulations)
         n.expressions = copy.deepcopy(el.expressions)
-        if el.stemDirection in ("up", "down"):
-            n.stemDirection = el.stemDirection
         return n
     out = copy.deepcopy(el)
     if isinstance(out, note.Note):
@@ -387,6 +387,14 @@ def content_lengths(parts: list[stream.Part]) -> list[float]:
     return lengths
 
 
+def _measure_clefs(m: stream.Measure) -> list[tuple[float, clef.Clef]]:
+    """Clefs in ``m`` (including mid-measure changes inside voices), one per offset."""
+    found: dict[float, clef.Clef] = {}
+    for c in m.recurse().getElementsByClass(clef.Clef):
+        found.setdefault(float(c.getOffsetInHierarchy(m)), c)
+    return sorted(found.items(), key=lambda t: t[0])
+
+
 def split_staff(
     part: stream.Part, voice_names: list[str], flags: list[Flag], measure_lengths: list[float] | None = None
 ) -> list[stream.Part]:
@@ -406,8 +414,11 @@ def split_staff(
             mo.numberSuffix = m.numberSuffix
             mo.paddingLeft = m.paddingLeft
             mo.paddingRight = m.paddingRight
-            if i == 0:
+            clefs = _measure_clefs(m)
+            if i == 0 and not any(off == 0 for off, _ in clefs):
                 mo.insert(0, VOICE_CLEFS[voice_name]())
+            for off, c in clefs:
+                mo.insert(off, copy.deepcopy(c))
             for el in m.getElementsByClass(SHARED_MEASURE_ELEMENTS):
                 mo.insert(el.offset, copy.deepcopy(el))
             if m.leftBarline is not None:

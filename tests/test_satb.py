@@ -66,11 +66,25 @@ def test_closed_score_chords_are_split_top_and_bottom():
     assert parts["Bass"] == ["C3", "B2", "C3", "E3"]
 
 
-def test_tenor_uses_treble8vb_and_parts_are_named():
+def test_split_voices_keep_source_clef_and_positions():
     res = to_satb(_closed_with_chords())
     assert [p.partName for p in res.score.parts] == ["Soprano", "Alto", "Tenor", "Bass"]
-    tenor_clef = res.score.parts[2].recurse().getElementsByClass(clef.Clef)[0]
-    assert isinstance(tenor_clef, clef.Treble8vbClef)
+    first = [p.recurse().getElementsByClass(clef.Clef)[0] for p in res.score.parts]
+    assert [type(c) for c in first] == [clef.TrebleClef, clef.TrebleClef, clef.BassClef, clef.BassClef]
+    for p in res.score.parts:
+        assert all(n.stemDirection == "unspecified" for n in p.recurse().notes)
+
+
+def test_mid_measure_clef_change_is_copied_to_both_voices():
+    m = _measure(
+        1, [chord.Chord(["C3", "G3"]), chord.Chord(["D3", "B3"]), chord.Chord(["C4", "E4"]), chord.Chord(["C4", "G4"])]
+    )
+    m.insert(3, clef.TrebleClef())
+    upper = _staff([_measure(1, [chord.Chord(["E4", "C5"]) for _ in range(4)])], clef.TrebleClef())
+    res = to_satb(stream.Score([upper, _staff([m], clef.BassClef())]))
+    for p in res.score.parts[2:]:
+        cs = [(float(c.offset), type(c)) for c in p.recurse().getElementsByClass(clef.Clef)]
+        assert cs == [(0.0, clef.BassClef), (3.0, clef.TrebleClef)]
 
 
 def test_two_voices_with_different_rhythms():
