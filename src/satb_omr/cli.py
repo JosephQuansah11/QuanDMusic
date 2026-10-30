@@ -53,6 +53,13 @@ def _evaluate(args: argparse.Namespace) -> int:
 def _serve(args: argparse.Namespace) -> int:
     import uvicorn
 
+    if args.host not in ("127.0.0.1", "localhost", "::1") and not args.allow_remote:
+        print(
+            "Refusing to listen on a non-loopback address: the web UI has no authentication.\n"
+            "Put it behind an authenticating proxy and pass --allow-remote if you really mean it.",
+            file=sys.stderr,
+        )
+        return 2
     uvicorn.run("satb_omr.web:app", host=args.host, port=args.port)
     return 0
 
@@ -91,6 +98,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("serve", help="start the web UI")
     s.add_argument("--host", default="127.0.0.1")
+    s.add_argument("--allow-remote", action="store_true", help="allow a non-loopback --host (no built-in auth)")
     s.add_argument("--port", type=int, default=8000)
     s.set_defaults(func=_serve)
     return ap

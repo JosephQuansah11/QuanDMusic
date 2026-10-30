@@ -29,6 +29,14 @@ def _run(cmd: list[str], timeout: int, env: dict | None = None) -> subprocess.Co
         return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env, check=False)
     except subprocess.TimeoutExpired as exc:
         raise EngineError(f"{cmd[0]} timed out after {timeout}s") from exc
+    except OSError as exc:
+        raise EngineError(f"cannot run {cmd[0]}: {exc}") from exc
+
+
+def _clear_outputs(workdir: Path, stem: str) -> None:
+    """Remove results of earlier runs so a failed run is never mistaken for success."""
+    for old in [*workdir.glob(f"{stem}*.mxl"), *workdir.glob(f"{stem}*.musicxml")]:
+        old.unlink()
 
 
 class AudiverisEngine(OMREngine):
@@ -55,6 +63,7 @@ class AudiverisEngine(OMREngine):
         if not self.binary:
             raise EngineError("Audiveris not found (set AUDIVERIS_BIN)")
         workdir.mkdir(parents=True, exist_ok=True)
+        _clear_outputs(workdir, image.stem)
         env = dict(os.environ)
         if not env.get("DISPLAY"):
             env["JAVA_TOOL_OPTIONS"] = (env.get("JAVA_TOOL_OPTIONS", "") + " -Djava.awt.headless=true").strip()
@@ -84,6 +93,7 @@ class OemerEngine(OMREngine):
 
     def recognize(self, image: Path, workdir: Path) -> list[Path]:
         workdir.mkdir(parents=True, exist_ok=True)
+        _clear_outputs(workdir, image.stem)
         cmd = [sys.executable, "-m", "oemer.ete", "-o", str(workdir), str(image)]
         proc = _run(cmd, self.timeout)
         out = workdir / f"{image.stem}.musicxml"

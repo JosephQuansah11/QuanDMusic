@@ -56,7 +56,14 @@ def write_csv(path: Path, records: list[dict]) -> None:
     with path.open("w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=list(records[0]))
         w.writeheader()
-        w.writerows(records)
+        w.writerows({k: _csv_safe(v) for k, v in r.items()} for r in records)
+
+
+def _csv_safe(v):
+    """Stop spreadsheets from evaluating lyric text such as ``=HYPERLINK(...)``."""
+    if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + v
+    return v
 
 
 def markdown(meta: dict, records: list[dict], flags: list[Flag]) -> str:

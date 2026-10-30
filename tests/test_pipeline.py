@@ -114,3 +114,25 @@ def test_rejects_unknown_file_type(tmp_path):
     shutil.copy(FIX / "truth.musicxml", bad)
     with pytest.raises(ValueError):
         convert(bad, tmp_path / "out")
+
+
+def test_csv_neutralises_formulas(tmp_path):
+    from satb_omr.report import write_csv
+
+    write_csv(tmp_path / "n.csv", [{"lyric": "=HYPERLINK(1)", "pitch": "B4"}])
+    assert "'=HYPERLINK(1)" in (tmp_path / "n.csv").read_text()
+
+
+def test_bad_engine_path_is_engine_error(tmp_path):
+    from satb_omr.engines import EngineError
+
+    img = tmp_path / "p.png"
+    img.write_bytes(b"x")
+    with pytest.raises(EngineError):
+        AudiverisEngine(binary=str(tmp_path / "missing")).recognize(img, tmp_path / "w")
+
+
+def test_serve_refuses_remote_without_flag():
+    from satb_omr.cli import main
+
+    assert main(["serve", "--host", "0.0.0.0"]) == 2
