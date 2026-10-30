@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SATB OMR — sheet music to MusicXML</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+  h1 { margin-bottom: .2rem; }
+  form { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .8rem; padding: 1rem; background: #f5f6f8; border-radius: 8px; }
+  label { display: flex; flex-direction: column; font-size: .85rem; gap: .25rem; }
+  .full { grid-column: 1 / -1; }
+  button { padding: .6rem 1.2rem; font-size: 1rem; cursor: pointer; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .9rem; }
+  th, td { border: 1px solid #ddd; padding: .3rem .5rem; text-align: left; }
+  th { background: #f0f0f0; }
+  .flags li { font-size: .85rem; }
+  #status { margin: 1rem 0; font-weight: 600; }
+  img { max-width: 100%; border: 1px solid #ddd; }
+  .files a { margin-right: .8rem; display: inline-block; }
+</style>
+</head>
+<body>
+<h1>SATB OMR</h1>
+<p>Upload a PDF or image of a choral score. Combined staves (S+A / T+B) are split into four separate voices and exported as MusicXML, MIDI and a solfège report.</p>
+<form id="f">
+  <label class="full">Score file (PDF, PNG, JPG, TIFF, or MusicXML)
+    <input type="file" name="file" required accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp,.musicxml,.mxl,.xml">
+  </label>
+  <label>Layout
+    <select name="layout"><option value="auto">Auto-detect</option><option value="open">Open (4 staves)</option><option value="closed">Closed (2 combined staves)</option></select>
+  </label>
+  <label>Staff mapping (optional)
+    <input name="mapping" placeholder='e.g. SA,TB or S,A,T,B,-,-'>
+  </label>
+  <label>Engine
+    <select name="engine"><option value="auto">Auto</option><option value="audiveris">Audiveris</option><option value="oemer">oemer</option></select>
+  </label>
+  <label>Key override (optional)
+    <input name="key" placeholder="e.g. G major">
+  </label>
+  <label>Minor keys
+    <select name="minor"><option value="la">La-based minor</option><option value="do">Do-based minor</option></select>
+  </label>
+  <label>Syllables
+    <select name="syllables"><option value="solfege">Do Re Mi</option><option value="tonic-solfa">Tonic sol-fa (d r m)</option></select>
+  </label>
+  <label><span><input type="checkbox" name="solfege_lyrics" value="true"> Add solfège as lyrics</span></label>
+  <div class="full"><button type="submit">Convert</button></div>
+</form>
+<div id="status"></div>
+<div id="out"></div>
+<script>
+const VOICES = ["Soprano", "Alto", "Tenor", "Bass"];
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+document.getElementById("f").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const status = document.getElementById("status"), out = document.getElementById("out");
+  status.textContent = "Recognising… (about 30 s per page)"; out.innerHTML = "";
+  const fd = new FormData(ev.target);
+  if (!fd.has("solfege_lyrics")) fd.append("solfege_lyrics", "false");
+  const resp = await fetch("/api/convert", { method: "POST", body: fd });
+  const data = await resp.json();
+  if (!resp.ok) { status.textContent = "Error: " + (data.detail || resp.statusText); return; }
+  status.textContent = `Done — key ${data.key} (Do = ${data.do}); ${data.flags.length} review flag(s)`;
+  const byMeasure = {};
+  for (const n of data.notes) {
+    const k = n.measure; (byMeasure[k] ||= {}); (byMeasure[k][n.voice] ||= []).push(n);
+  }
+  let rows = "";
+  for (const m of Object.keys(byMeasure).sort((a, b) => a - b)) {
+    for (const v of VOICES) {
+      const ns = byMeasure[m][v] || [];
+      rows += `<tr><td>${esc(m)}</td><td>${v}</td><td>${ns.map(n => n.pitch === "rest" ? "–" : esc(n.pitch)).join(" ")}</td><td>${ns.map(n => esc(n.solfege || "–")).join(" ")}</td></tr>`;
+    }
+  }
+  const files = Object.entries(data.files).filter(([k]) => k !== "preview")
+    .map(([k, url]) => `<a href="${url}" download>${esc(k)}</a>`).join("");
+  out.innerHTML = `
+    <p><b>Layout:</b> ${data.layouts.map(esc).join("<br>")} &nbsp; <b>Engine:</b> ${data.engines.map(esc).join(", ")}</p>
+    <h3>Downloads</h3><div class="files">${files}</div>
+    ${data.files.preview ? `<h3>Preview (separated SATB)</h3><img src="${data.files.preview}" alt="preview">` : ""}
+    <h3>Review flags</h3><ul class="flags">${data.flags.map(f => `<li>[${esc(f.kind)}] ${esc(f.voice)} ${f.measure != null ? "m." + esc(f.measure) : ""}: ${esc(f.message)}</li>`).join("") || "<li>None</li>"}</ul>
+    <h3>Notes & solfège</h3>
+    <table><tr><th>Measure</th><th>Voice</th><th>Notes</th><th>Solfège</th></tr>${rows}</table>`;
+});
+</script>
+</body>
+</html>

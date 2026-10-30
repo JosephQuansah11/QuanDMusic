@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "satb-omr"
+version = "0.1.0"
+description = "Convert PDF/image sheet music to MusicXML, separating combined staves into Soprano, Alto, Tenor and Bass"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = [
+    "music21>=9.1",
+    "numpy",
+    "opencv-python-headless",
+    "pymupdf",
+    "verovio",
+    "cairosvg",
+    "fastapi",
+    "uvicorn",
+    "python-multipart",
+]
+
+[project.optional-dependencies]
+oemer = ["oemer"]
+dev = ["pytest", "ruff", "httpx"]
+
+[project.scripts]
+satb-omr = "satb_omr.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+satb_omr = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["omr: end-to-end tests that need an OMR engine (Audiveris)"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+extend-ignore = ["B008"]  # FastAPI File()/Form() defaults
