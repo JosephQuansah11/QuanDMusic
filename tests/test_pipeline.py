@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import shutil
 from pathlib import Path
@@ -60,7 +61,9 @@ def test_web_api_convert(tmp_path, monkeypatch):
     from satb_omr import web
 
     monkeypatch.setattr(web, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(web, "convert", lambda src, out, opts: convert(src, out, ConvertOptions(preview=False)))
+    monkeypatch.setattr(
+        web, "convert", lambda src, out, opts: convert(src, out, dataclasses.replace(opts, preview=False))
+    )
     client = TestClient(web.app)
     assert "SATB OMR" in client.get("/").text
     with (FIX / "hymn_closed.musicxml").open("rb") as fh:
@@ -70,6 +73,40 @@ def test_web_api_convert(tmp_path, monkeypatch):
     assert body["key"] == "G major"
     assert client.get(body["files"]["musicxml"]).status_code == 200
     assert client.get(f"/files/{body['job']}/../../etc/passwd").status_code == 404
+    first_b4 = next(n for n in body["notes"] if n["voice"] == "Soprano" and n["pitch"] == "B4")
+    assert first_b4["solfege"] == "Mi"
+
+    with (FIX / "hymn_closed.musicxml").open("rb") as fh:
+        resp = client.post("/api/convert", files={"file": ("hymn.musicxml", fh)}, data={"key": "D major"})
+    body = resp.json()
+    assert body["key"] == "D major"
+    first_b4 = next(n for n in body["notes"] if n["voice"] == "Soprano" and n["pitch"] == "B4")
+    assert first_b4["solfege"] == "La"
+
+    resp = client.post("/api/convert", files={"file": ("bad.pdf", b"not a pdf")})
+    assert resp.status_code == 422
+    assert "Cannot read PDF" in resp.json()["detail"]
+
+
+def test_preview_renders_from_worker_threads(tmp_path):
+    import threading
+
+    from satb_omr.render import render_musicxml
+
+    errors = []
+
+    def work(i):
+        try:
+            render_musicxml(FIX / "hymn_closed.musicxml", tmp_path / f"p{i}.png")
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    for i in range(3):
+        t = threading.Thread(target=work, args=(i,))
+        t.start()
+        t.join()
+    assert not errors
+    assert all((tmp_path / f"p{i}.png").stat().st_size > 0 for i in range(3))
 
 
 def test_rejects_unknown_file_type(tmp_path):

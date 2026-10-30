@@ -66,7 +66,10 @@ def detect_key(score: stream.Score, override: str | None = None) -> key.Key:
     """Key from the first key signature, with the mode chosen by pitch analysis."""
     if override:
         tonic, _, mode = override.strip().partition(" ")
-        return key.Key(tonic.replace("b", "-") if len(tonic) > 1 else tonic, mode or "major")
+        try:
+            return key.Key(tonic.replace("b", "-") if len(tonic) > 1 else tonic, mode.strip().lower() or "major")
+        except Exception as exc:
+            raise ValueError(f"Unrecognised key {override!r}; use e.g. 'G major' or 'E minor'") from exc
     sigs = list(score.recurse().getElementsByClass(key.KeySignature))
     ks = sigs[0] if sigs else key.KeySignature(0)
     if isinstance(ks, key.Key):
@@ -80,10 +83,19 @@ def detect_key(score: stream.Score, override: str | None = None) -> key.Key:
     return ks.asKey("major")
 
 
-def key_for(n: note.GeneralNote, global_key: key.Key) -> key.Key:
-    """Key in effect for ``n``; follows key-signature changes, keeping the global mode."""
+def initial_sharps(score: stream.Score) -> int | None:
+    sigs = list(score.recurse().getElementsByClass(key.KeySignature))
+    return sigs[0].sharps if sigs else None
+
+
+def key_for(n: note.GeneralNote, global_key: key.Key, base_sharps: int | None = None) -> key.Key:
+    """Key in effect for ``n``; follows key-signature changes, keeping the global mode.
+
+    ``base_sharps`` is the score's opening signature, which always maps to ``global_key``
+    (so a user key override wins over the printed signature).
+    """
     ks = n.getContextByClass(key.KeySignature)
-    if ks is None or ks.sharps == global_key.sharps:
+    if ks is None or ks.sharps in (global_key.sharps, base_sharps):
         return global_key
     if isinstance(ks, key.Key):
         return ks
@@ -92,6 +104,7 @@ def key_for(n: note.GeneralNote, global_key: key.Key) -> key.Key:
 
 def annotate_lyrics(score: stream.Score, k: key.Key, minor: str = "la", style: str = "solfege") -> None:
     """Add the syllable of every note as an extra lyric line."""
+    base = initial_sharps(score)
     for n in score.recurse().notes:
         if isinstance(n, note.Note) and not (n.tie and n.tie.type in ("stop", "continue")):
-            n.addLyric(syllable(n.pitch, key_for(n, k), minor, style))
+            n.addLyric(syllable(n.pitch, key_for(n, k, base), minor, style))

@@ -15,7 +15,9 @@ def render_musicxml(
     import cairosvg
     import verovio
 
-    tk = verovio.toolkit()
+    # Verovio only finds its bundled fonts automatically on the first thread that uses it.
+    tk = verovio.toolkit(False)
+    tk.setResourcePath(str(Path(verovio.__file__).parent / "data"))
     tk.setOptions(
         {
             "pageWidth": 2100,

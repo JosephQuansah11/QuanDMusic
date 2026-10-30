@@ -46,3 +46,23 @@ def test_detect_key_uses_signature_and_analysis(tmp_path):
     assert (k.tonic.name, k.mode) == ("A", "minor")
     k = detect_key(s, "G major")
     assert (k.tonic.name, k.mode) == ("G", "major")
+
+
+def test_key_override_beats_printed_signature():
+    from music21 import converter, note
+
+    from satb_omr.solfege import initial_sharps, key_for
+
+    s = converter.parse("tinyNotation: 4/4 b4 a g d'")
+    s.recurse().getElementsByClass("Measure")[0].insert(0, key.KeySignature(1))
+    b4 = next(n for n in s.recurse().notes if isinstance(n, note.Note))
+    override = detect_key(s, "D major")
+    assert syllable(b4.pitch, key_for(b4, override, initial_sharps(s))) == "La"
+    assert syllable(b4.pitch, key_for(b4, detect_key(s), initial_sharps(s))) == "Mi"
+
+
+def test_bad_key_override_is_value_error():
+    from music21 import stream
+
+    with pytest.raises(ValueError):
+        detect_key(stream.Score(), "H sharp-ish")

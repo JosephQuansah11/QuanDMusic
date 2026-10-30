@@ -9,11 +9,12 @@ from pathlib import Path
 from music21 import key, note, stream
 
 from .satb import Flag
-from .solfege import key_for, syllable
+from .solfege import initial_sharps, key_for, syllable
 
 
 def note_records(score: stream.Score, k: key.Key, minor: str, style: str) -> list[dict]:
     records = []
+    base = initial_sharps(score)
     for part in score.parts:
         for m in part.getElementsByClass(stream.Measure):
             for n in m.notesAndRests:
@@ -35,7 +36,7 @@ def note_records(score: stream.Score, k: key.Key, minor: str, style: str) -> lis
                     rec.update(
                         pitch=n.nameWithOctave,
                         midi=n.pitch.midi,
-                        solfege=syllable(n.pitch, key_for(n, k), minor, style),
+                        solfege=syllable(n.pitch, key_for(n, k, base), minor, style),
                     )
                 else:
                     rec["pitch"] = "rest"
